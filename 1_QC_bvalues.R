@@ -5,7 +5,7 @@
 # Quality control of beta-values
 
 # Run like this:
-# Rscript 
+
 library(tidyr)
 library(dplyr)
 library(ggplot2)
@@ -15,9 +15,6 @@ inpath <- "/users/genomics/marta/TCGA_methylation/analysis/0_bvalues"
 ctypes_path = list.files(inpath, full.names=T)
 ctypes = list.files(inpath)
 
-patients_450 = read.csv("/users/genomics/marta/TCGA_methylation/results/patients_450K.csv")
-patients_450 = patients_450$case_ID
-patients_450 = unique(patients_450)
 ################################################################################
 
 ################################ betavalues ####################################
@@ -45,6 +42,10 @@ ggplot(df, aes(x=betavalue, color=normal_tumor)) +
   facet_wrap(~ cancer_type, scales="free")
 ################################################################################
 
-######################### sample quality control ###############################
-########## input merged bvalues #######
-merged_bvalues = list.files(inpath, recursive=T, pattern = "bvalues.csv", full.names=T)
+################## sample quality control | EASIER package #####################
+library(EASIER)
+library(readtext)
+
+# 450k paired patients bvalue files
+files = list.files(inpath, recursive=T, pattern = "bvalues_450Kpaired.csv", full.names=T)
+
