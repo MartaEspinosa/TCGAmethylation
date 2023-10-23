@@ -14,9 +14,6 @@
 
 
 **STEP 2**
-Convert beta-values to M-values.
-
-**STEP 3**
 Generate 1 file per cancer type where rows are CpGs and columns are beta-values corresponding to each sample.
 
 ## 1. Quality Control

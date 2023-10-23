@@ -2,7 +2,7 @@
 # Author: Marta Espinosa Camarena
 # email: mespinosa@imim.es
 # Date: 19th Oct 2023
-# This scripts passes from individual files with B or M values to merged ones. If a different number of CpGs are found, NAs are used to fill blank spaces
+# This scripts passes from individual files with B values to merged ones. If a different number of CpGs are found, NAs are used to fill blank spaces
 
 # Run like this:
 # Rscript onFile_CancerType.R $inpath
@@ -29,22 +29,25 @@ if (length(args)<1) {
 inpath <- args[1]
 # inpath <- "/users/genomics/marta/TCGA_methylation/analysis/0_bvalues/TCGA-BLCA"
 
-if (grepl("mvalues", inpath)) {
-  values <- "mvalues"
-} else if (grepl("bvalues", inpath)) {
-  values <- "bvalues"
-}
+############# DELETE
+# if (grepl("mvalues", inpath)) {
+#   values <- "mvalues"
+# } else if (grepl("bvalues", inpath)) {
+#   values <- "bvalues"
+# }
 
 ################################################
 ### Read input
 ################################################
 files = list.files(inpath, pattern="^TCGA", full.names=T)
 patientIDs = list.files(inpath, pattern="^TCGA", full.names=F)
-if (values == "mvalues") {
-  patientIDs = gsub("_mvalues.txt","",patientIDs)
-} else if (values == "bvalues") {
-  patientIDs = gsub("_betavalues.txt","",patientIDs)
-}
+
+############# DELETE
+# if (values == "mvalues") {
+#   patientIDs = gsub("_mvalues.txt","",patientIDs)
+# } else if (values == "bvalues") {
+patientIDs = gsub("_betavalues.txt","",patientIDs)
+# }
 
 df = data.frame("CpG" = character(),
                 stringsAsFactors = F)
@@ -60,4 +63,4 @@ for(i in 1:length(files)) {
 }
 df %>% head
 
-write.csv(df, paste0(inpath,"/",values,".csv"), row.names =F, quote=F)
+write.csv(df, paste0(inpath,"/bvalues.csv"), row.names =F, quote=F)
