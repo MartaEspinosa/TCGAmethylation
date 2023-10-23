@@ -8,9 +8,10 @@
 # Rscript onFile_CancerType.R $inpath
 
 ######################## libraries to be loaded #################################
-library(dplyr)
-library(tidyr)
-library(data.table)
+
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(data.table))
 options(warn=-1)
 
 ################################################################################
@@ -37,8 +38,8 @@ if (grepl("mvalues", inpath)) {
 ################################################
 ### Read input
 ################################################
-files = list.files(inpath, full.names=T)
-patientIDs = list.files(inpath, full.names=F)
+files = list.files(inpath, pattern="^TCGA", full.names=T)
+patientIDs = list.files(inpath, pattern="^TCGA", full.names=F)
 if (values == "mvalues") {
   patientIDs = gsub("_mvalues.txt","",patientIDs)
 } else if (values == "bvalues") {
@@ -57,5 +58,6 @@ for(i in 1:length(files)) {
   df = merge(df, input, by="CpG", all.x = T, all.y = T)
   
 }
+df %>% head
 
 write.csv(df, paste0(inpath,"/",values,".csv"), row.names =F, quote=F)
