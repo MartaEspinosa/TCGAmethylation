@@ -25,6 +25,11 @@ ann450k <- getAnnotation(IlluminaHumanMethylation450kanno.ilmn12.hg19)
 inpath <- "/users/genomics/marta/TCGA_methylation/analysis/0_bvalues"
 files = list.files(inpath, recursive=T, pattern = "bvalues_450Kpaired.csv", full.names=T)
 ctypes = list.files(inpath, pattern="^TCGA", full.names=F)
+
+## Removing probes that have been demonstrated to map to multiple places in the genome.
+# list adapted from https://www.tandfonline.com/doi/full/10.4161/epi.23470
+crs.reac <- read.csv("/users/genomics/marta/TCGA_methylation/cross_reactive_probe.chen2013.csv")
+crs.reac <- crs.reac$TargetID[-1]
 ################################################################################
 
 #___________inspecting methylation data_______________#
@@ -69,10 +74,6 @@ for(f in 1:length(files)) {
   noSNPs_MAF_num_cases = nrow(met)
   
   ## Removing probes that have been demonstrated to map to multiple places in the genome.
-  # list adapted from https://www.tandfonline.com/doi/full/10.4161/epi.23470
-  crs.reac <- read.csv("/users/genomics/marta/TCGA_methylation/cross_reactive_probe.chen2013.csv")
-  crs.reac <- crs.reac$TargetID[-1]
-  
   # filtre met
   met <- met[ -which(row.names(met) %in% crs.reac), ]
   filtered_num_cases = nrow(met)
@@ -102,3 +103,5 @@ for(f in 1:length(files)) {
 
 }
 summary %>% head
+summary_percentage = summary %>% mutate(kept_percentage = round(((noMultiMapping / initial_CpGs ) *100),3))
+write.csv(summary_percentage, file=file.path(inpath,"summary_filtered_bvalues.csv"), quote = F, row.names=F)
