@@ -27,11 +27,13 @@ library(gridExtra)
 inpath <- "/users/genomics/marta/TCGA_methylation/analysis/0_bvalues"
 ctypes = list.files(inpath, pattern="^TCGA", full.names=F)
 # dir.create("/users/genomics/marta/TCGA_methylation/plots/UCSC_Groups")
+# dir.create("/users/genomics/marta/TCGA_methylation/plots/Hyper_Hypo")
 
 dfList <- list()  ## create empty list
 plots_UCSC_Groups <- list()
 deff.meth.annot.interesting.List <- list()
 DeltaBvaluesList <- list()
+
 ################################################################################
 
 
@@ -39,21 +41,62 @@ for(f in 1:length(ctypes)) {
   print(ctypes[f])
   bval = readRDS(file.path(inpath,ctypes[f],"bval.RDS"))
   
-  ##### compute differences of beta values (average tumor - average normal) ####
+  ##### compute differences of beta values tumor vs normal ####
   DeltaBvalues = bval 
   DeltaBvalues$probeID = rownames(DeltaBvalues)
   DeltaBvalues = DeltaBvalues %>% pivot_longer(cols=-c(probeID), names_to = "sample", values_to = "bval") %>% 
     mutate(normal_tumor = case_when(grepl("tumor", sample) ~ "tumor",
                                     grepl("normal", sample) ~ "normal")) 
   
+  ### option A) Average Tumors - Average Normals
   normals = DeltaBvalues %>% subset(normal_tumor == "normal") %>% group_by(probeID) %>% summarise(average_normal = mean(bval))
   tumors = DeltaBvalues %>% subset(normal_tumor == "tumor") %>% group_by(probeID) %>% summarise(average_tumor = mean(bval))
   
-  DeltaBvalues = merge(normals, tumors, by="probeID")
-  DeltaBvalues$difference = DeltaBvalues$average_tumor - DeltaBvalues$average_normal
-  DeltaBvalues = DeltaBvalues %>% mutate(hypo_hyper = case_when(difference > 0.2 ~ "hyper",
-                                                                difference < -0.2 ~ "hypo"))
-  DeltaBvaluesList[[ctypes[f]]] = DeltaBvalues
+  DeltaBvalues_A = merge(normals, tumors, by="probeID")
+  DeltaBvalues_A$diff_bval = DeltaBvalues_A$average_tumor - DeltaBvalues_A$average_normal
+  DeltaBvalues_A = DeltaBvalues_A %>% mutate(hypo_hyper = case_when(diff_bval > 0.2 ~ "Hypermethylated",
+                                                                diff_bval < -0.2 ~ "Hypomethylated",
+                                                                TRUE ~ "Intermediate"))
+  table(DeltaBvalues_A$hypo_hyper)
+  
+  ### option B) Average(Tumors - Normals)
+  DeltaBvalues_B = DeltaBvalues
+  DeltaBvalues_B$patient = gsub("_.*","",DeltaBvalues_B$sample)
+  
+  DeltaBvalues_B = DeltaBvalues_B %>% select(-sample) %>% group_by(probeID,patient) %>% 
+    summarize(diff_bval = mean(bval[normal_tumor == "tumor"]) - mean(bval[normal_tumor == "normal"])) %>% distinct()
+  DeltaBvalues_B_final = DeltaBvalues_B %>% group_by(probeID) %>% summarise(mean_diff_bval = mean(diff_bval))
+  DeltaBvalues_B_final = DeltaBvalues_B_final %>% mutate(hypo_hyper = case_when(mean_diff_bval > 0.2 ~ "Hypermethylated",
+                                                                                mean_diff_bval < -0.2 ~ "Hypomethylated",
+                                                                    TRUE ~ "Intermediate"))
+  table(DeltaBvalues_B_final$hypo_hyper)
+  
+  
+  ### option C) Tumors - Normals in 90% of the patients
+  DeltaBvalues_C = DeltaBvalues_B
+  num_patients = nrow(DeltaBvalues_C %>% ungroup() %>% select(patient) %>% distinct)
+  
+  DeltaBvalues_C_final = DeltaBvalues_C %>% group_by(probeID) %>%
+    mutate(hypo_hyper = case_when(
+      sum(diff_bval > 0.2) > num_patients*0.9 ~ "Hypermethylated",
+      sum(diff_bval < -0.2) > num_patients*0.9 ~ "Hypomethylated",
+      TRUE ~ "Intermediate"))
+  
+  DeltaBvalues_C_final = DeltaBvalues_C_final %>% group_by(probeID, hypo_hyper) %>% summarise(mean_diff_bval = mean(diff_bval)) %>% select(probeID, mean_diff_bval, hypo_hyper) %>% distinct()
+  
+  table(DeltaBvalues_C_final$hypo_hyper)
+  DeltaBvaluesList[[ctypes[f]]] = DeltaBvalues_C_final
+  
+  ggplot(to_plot, aes(x=factor(hypo_hyper, level=c('Hypomethylated', 'Intermediate', 'Hypermethylated')), y=mean_diff_bval, fill=hypo_hyper)) +
+    geom_boxplot()+
+    labs(y="Mean(Tumor BValues - Normal BValues)",
+         x="Level of methylation in >90% of the patients",
+         title=paste0("Methylation level | ", ctypes[f])) +
+    scale_color_manual("Methylation state", values=c("#2c7fb8","#feb24c","#bdbdbd")) +
+    scale_fill_manual("Methylation state", values=c("#2c7fb8","#feb24c","#bdbdbd")) +
+    theme_bw()  
+  ggsave(paste0("/users/genomics/marta/TCGA_methylation/plots/Hyper_Hypo/boxplot_HyperHypoInt_",ctypes[f],".pdf"), width=6.18, height=4.52)
+  ggsave(paste0("/users/genomics/marta/TCGA_methylation/plots/Hyper_Hypo/boxplot_HyperHypoInt_",ctypes[f],".png"), width=6.18, height=4.52)
   ##############################################################################
   
   mval = readRDS(file.path("/users/genomics/marta/TCGA_methylation/analysis/1_Mvalues",ctypes[f],"mval.RDS"))
@@ -104,26 +147,5 @@ for(f in 1:length(ctypes)) {
 
 # export
 saveRDS(dfList, file = "/users/genomics/marta/TCGA_methylation/analysis/DE_CpGs.RDS")
-saveRDS(deff.meth.annot.interesting.List, file = "/users/genomics/marta/TCGA_methylation/analysis/DE_CpGs_annotated.RDS")
 saveRDS(DeltaBvaluesList, file = "/users/genomics/marta/TCGA_methylation/analysis/DeltaBetaValues.RDS")
 
-
-## get intersection of genes with differentially methylated CpGs
-# Step 1: Extract the unique gene names from each dataframe
-gene_name_lists <- lapply(deff.meth.annot.interesting.List, function(df) unique(df$UCSC_RefGene_Name))
-
-# Initialize a variable to store the maximum count of dataframes containing a gene name
-max_count <- 0
-
-# Initialize a variable to store the gene names that meet the condition
-max_gene_names <- character(0)
-
-# Loop through unique gene names and count how many dataframes contain each name
-for (gene_name in unique(unlist(gene_name_lists))) {
-  count <- sum(sapply(gene_name_lists, function(gene_list) gene_name %in% gene_list))
-  if (count >= max_count) {
-    # If the count is greater than or equal to the current maximum, update max_count and max_gene_names
-    max_count <- count
-    max_gene_names <- c(max_gene_names, gene_name)
-  }
-}
